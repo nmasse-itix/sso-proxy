@@ -1,0 +1,6 @@
+#!/bin/sh
+
+echo "I'm here !!!"
+
+exec /usr/local/s2i/assemble
+
