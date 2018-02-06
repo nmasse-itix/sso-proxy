@@ -7,7 +7,8 @@ set -e
 cd /tmp/src
 
 echo "Install nginx configuration files..."
-cp conf.d/sso-proxy.conf $NGINX_CONFIGURATION_PATH/
+cp nginx.d/*.conf $NGINX_CONFIGURATION_PATH/
+cp nginx.conf $APP_ROOT/etc/
 
 echo "Creating empty dirs to hold serving certs and trusted CAs..."
 mkdir -p $APP_ROOT/etc/serving-cert/ $APP_ROOT/etc/ca-certs/
