@@ -3,6 +3,9 @@
 # Exit immediately if command returns non-zero status code
 set -e
 
+# The GIT repository is cloned into /tmp/s2i/src
+cd /tmp/s2i/src
+
 echo "Install nginx configuration files..."
 cp conf.d/sso-proxy.conf $NGINX_CONFIGURATION_PATH/
 
