@@ -1,10 +1,15 @@
 #!/bin/bash
 
-source /opt/app-root/etc/generate_container_user
+test -f /opt/app-root/etc/generate_container_user && source /opt/app-root/etc/generate_container_user
 
 set -e
 
 # Default values are set here
 export "LOG_LEVEL=${LOG_LEVEL:=info}"
+export "NGINX_CONF=${NGINX_CONF:=/opt/app-root/etc/}"
 
-exec nginx -g "daemon off;" -c "/opt/app-root/etc/nginx.conf"
+if [ -f "$NGINX_CONF/nginx.env.conf" ]; then
+  envsubst '$LOG_LEVEL:$RESOLVER:$APP_ROOT:$SSO_SERVICE_HOSTNAME:$PROXY_ROUTE_HOSTNAME' < "$NGINX_CONF/nginx.env.conf" > "$NGINX_CONF/nginx.conf"
+fi
+
+exec nginx -g "daemon off;" -c "$NGINX_CONF/nginx.conf"
