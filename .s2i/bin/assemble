@@ -4,7 +4,9 @@
 set -e
 
 # The GIT repository is cloned into /tmp/s2i/src
-cd /tmp/s2i/src
+cd /tmp
+
+find /tmp
 
 echo "Install nginx configuration files..."
 cp conf.d/sso-proxy.conf $NGINX_CONFIGURATION_PATH/
