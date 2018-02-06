@@ -1,0 +1,210 @@
+apiVersion: v1
+kind: Template
+labels:
+  template: sso-proxy
+message: Will forward requests with SSL/TLS client authentication to http://${SSO_SERVICE_HOSTNAME}
+metadata:
+  annotations:
+    description: |-
+      An SSL/TLS-enabled proxy for Red Hat SSO.
+    openshift.io/display-name: Red Hat SSO - SSL/TLS Proxy
+    tags: instant-app
+    template.openshift.io/documentation-url: https://github.com/nmasse-itix/sso-proxy
+    template.openshift.io/long-description: An SSL/TLS-enabled proxy for Red Hat SSO.
+    template.openshift.io/provider-display-name: Nicolas Massé
+    template.openshift.io/support-url: https://github.com/nmasse-itix/sso-proxy/issues
+  name: sso-proxy
+parameters:
+- description: The GIT repository to use.
+  displayName: GIT Repo URL
+  name: GIT_REPO
+  value: https://github.com/nmasse-itix/sso-proxy.git
+
+- description: "The nginx log level (one of: debug, info, warn, error, crit, emerg)"
+  displayName: Nginx log level
+  name: LOG_LEVEL
+  value: info
+
+- description: IP Address of your DNS server
+  displayName: Nginx resolvers
+  name: RESOLVER
+  value: "8.8.8.8"
+
+- description: The Hostname to use to create the OpenShift Route
+  displayName: OpenShift Route Hostname
+  name: PROXY_ROUTE_HOSTNAME
+  required: true
+
+- description: The hostname and port of the Red Hat SSO Service
+  displayName: Red Hat SSO Service Hostname and Port
+  name: SSO_SERVICE_HOSTNAME
+  required: true
+
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: nginx
+  spec:
+    lookupPolicy:
+      local: false
+    tags:
+    - name: latest
+      from:
+        kind: DockerImage
+        name: registry.access.redhat.com/rhscl/nginx-112-rhel7:latest
+      referencePolicy:
+        type: Source
+
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      app: sso-proxy
+    name: sso-proxy
+  spec:
+
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      app: sso-proxy
+    name: sso-proxy
+  spec:
+    failedBuildsHistoryLimit: 1
+    output:
+      to:
+        kind: ImageStreamTag
+        name: sso-proxy:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      git:
+        uri: ${GIT_REPO}
+      type: Git
+    strategy:
+      sourceStrategy:
+        from:
+          kind: ImageStreamTag
+          name: nginx:latest
+      type: Source
+    successfulBuildsHistoryLimit: 5
+    triggers:
+    - type: ConfigChange
+    - imageChange: {}
+      type: ImageChange
+
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      app: sso-proxy
+    name: sso-proxy
+  spec:
+    replicas: 1
+    selector:
+      app: sso-proxy
+      deploymentconfig: sso-proxy
+    strategy:
+      activeDeadlineSeconds: 21600
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        labels:
+          app: sso-proxy
+          deploymentconfig: sso-proxy
+      spec:
+        containers:
+        - env:
+          - name: RESOLVER
+            value: ${RESOLVER}
+          - name: LOG_LEVEL
+            value: ${LOG_LEVEL}
+          - name: PROXY_ROUTE_HOSTNAME
+            value: ${PROXY_ROUTE_HOSTNAME}
+          - name: SSO_SERVICE_HOSTNAME
+            value: ${SSO_SERVICE_HOSTNAME}
+          image: " "
+          imagePullPolicy: Always
+          name: sso-proxy
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          - containerPort: 8443
+            protocol: TCP
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /opt/app-root/etc/serving-cert/
+            name: tls
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: tls
+          secret:
+            defaultMode: 420
+            secretName: sso-proxy-tls
+    triggers:
+    - type: ConfigChange
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - sso-proxy
+        from:
+          kind: ImageStreamTag
+          name: sso-proxy:latest
+      type: ImageChange
+
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      service.alpha.openshift.io/serving-cert-secret-name: sso-proxy-tls
+    labels:
+      app: sso-proxy
+    name: sso-proxy
+  spec:
+    ports:
+    - name: 8080-tcp
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    - name: 8443-tcp
+      port: 8443
+      protocol: TCP
+      targetPort: 8443
+    selector:
+      app: sso-proxy
+      deploymentconfig: sso-proxy
+    sessionAffinity: None
+    type: ClusterIP
+
+- apiVersion: v1
+  kind: Route
+  metadata:
+    labels:
+      app: sso-proxy
+    name: sso-proxy
+  spec:
+    host: ${PROXY_ROUTE_HOSTNAME}
+    port:
+      targetPort: 8443-tcp
+    tls:
+      termination: passthrough
+    to:
+      kind: Service
+      name: sso-proxy
+      weight: 100
+    wildcardPolicy: None
