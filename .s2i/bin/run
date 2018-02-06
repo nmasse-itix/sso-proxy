@@ -1,15 +1,19 @@
 #!/bin/bash
 
+# In dev environments this file is missing and useless
 test -f /opt/app-root/etc/generate_container_user && source /opt/app-root/etc/generate_container_user
 
+# Stop as soon as an error occurs
 set -e
 
 # Default values are set here
 export "LOG_LEVEL=${LOG_LEVEL:=info}"
 export "NGINX_CONF=${NGINX_CONF:=/opt/app-root/etc/}"
 
+# Process the environment variables in the nginx configuration file
 if [ -f "$NGINX_CONF/nginx.env.conf" ]; then
   envsubst '$LOG_LEVEL:$RESOLVER:$APP_ROOT:$SSO_SERVICE_HOSTNAME:$PROXY_ROUTE_HOSTNAME' < "$NGINX_CONF/nginx.env.conf" > "$NGINX_CONF/nginx.conf"
 fi
 
+# Run nginx with our custom config file
 exec nginx -g "daemon off;" -c "$NGINX_CONF/nginx.conf"
