@@ -2,5 +2,5 @@
 
 echo "I'm here !!!"
 
-exec /usr/local/s2i/assemble
+exec $STI_SCRIPTS_PATH/assemble
 
