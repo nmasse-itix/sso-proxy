@@ -9,11 +9,14 @@ set -e
 # Default values are set here
 export "LOG_LEVEL=${LOG_LEVEL:=info}"
 export "NGINX_CONF=${NGINX_CONF:=/opt/app-root/etc/}"
+export "BACKEND_ENDPOINT_OVERRIDE=${BACKEND_ENDPOINT_OVERRIDE:=https://su1.3scale.net}"
+export "SSO_REALMS=${SSO_REALMS:=3scale}"
+export "SSO_CLIENT_ID=${SSO_CLIENT_ID:=admin-cli}"
 
 # Process the environment variables in the nginx configuration file
 if [ -f "$NGINX_CONF/nginx.env.conf" ]; then
-  envsubst '$LOG_LEVEL:$RESOLVER:$APP_ROOT:$SSO_SERVICE_HOSTNAME:$PROXY_ROUTE_HOSTNAME' < "$NGINX_CONF/nginx.env.conf" > "$NGINX_CONF/nginx.conf"
+  envsubst '$LOG_LEVEL:$RESOLVER:$APP_ROOT:$SSO_SERVICE_HOSTNAME:$PROXY_ROUTE_HOSTNAME:$PROXY_ROUTE_HOSTNAME:$BACKEND_ENDPOINT_OVERRIDE:$THREESCALE_PORTAL_ENDPOINT:$SSO_REALMS:$THREESCALE_SERVICE_TOKEN:$THREESCALE_SERVICE_ID:$THREESCALE_ACCESS_TOKEN:$SSO_SERVICE_USERNAME:$SSO_SERVICE_PASSWORD:$SSO_CLIENT_ID' < "$NGINX_CONF/nginx.env.conf" > "$NGINX_CONF/nginx.conf"
 fi
 
-# Run nginx with our custom config file
-exec nginx -g "daemon off;" -c "$NGINX_CONF/nginx.conf"
+# Run openresty with our custom config file
+exec openresty -g "daemon off;" -c "$NGINX_CONF/nginx.conf"
